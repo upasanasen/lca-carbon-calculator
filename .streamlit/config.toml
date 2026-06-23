@@ -1,0 +1,13 @@
+# Streamlit theme + server config. Safe to commit (no secrets here).
+# API keys, if ever added (e.g. EC3), go in .streamlit/secrets.toml, which is gitignored.
+
+[theme]
+base = "light"
+primaryColor = "#2E7D32"            # green accent (carbon / sustainability)
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F1F5F2"
+textColor = "#1F2933"
+font = "sans serif"
+
+[server]
+headless = true
