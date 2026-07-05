@@ -1,5 +1,7 @@
 # LCA Carbon Calculator (EN 15978)
 
+> **Note:** This is the original and official repository of **lca-carbon-calculator**, created and maintained by [Upasana Sen](https://github.com/upasanasen) © 2026, MIT License. If you found this project elsewhere, please verify it links back here.
+
 A Streamlit app for **early-stage whole-life carbon screening** of buildings,
 structured by EN 15978 lifecycle modules. Enter building elements and material
 quantities, pull emission factors from a live EPD database, and see global
