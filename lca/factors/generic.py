@@ -56,6 +56,7 @@ class GenericFactorAdapter(FactorAdapter):
                 geography=row.get("geography", ""),
                 citation=row.get("citation", ""),
                 preview_gwp_a1a3=_float(row.get("A1A3", "0")),
+                valid_until=row.get("valid_until", ""),
             )
             for row in rows
         ]

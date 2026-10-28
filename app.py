@@ -189,6 +189,13 @@ def result_to_csv(result) -> bytes:
 
 
 def result_to_html(project: Project, result) -> bytes:
+    a4_note = ""
+    if result.a4_omitted_rows:
+        a4_note = (
+            f"<p><strong>A4 coverage:</strong> transport omitted for {result.a4_omitted_rows} of "
+            f"{result.included_rows} included rows (mass unknown): "
+            f"{', '.join(result.a4_omitted_materials)}. The A4 total is understated.</p>"
+        )
     rows = "".join(
         f"<tr><td>{module}</td><td>{value:,.1f}</td></tr>"
         for module, value in result.module_totals.items()
@@ -214,6 +221,7 @@ def result_to_html(project: Project, result) -> bytes:
         <table><tr><th>Module</th><th>kg CO2e</th></tr>{rows}</table>
         <h2>Data Quality</h2>
         <p>{result.data_quality_summary}</p>
+        {a4_note}
         <p class="muted">Generic seed factors are for screening and app testing only. Replace with EPD/openLCA data before external reporting.</p>
       </body>
     </html>
@@ -372,7 +380,11 @@ def render_inventory(project: Project) -> Project:
         candidates = st.session_state.get("oko_candidates", [])
         if candidates:
             st.caption(f"{st.session_state.get('oko_total', len(candidates))} total matches; showing {len(candidates)}.")
-            labels = [f"{c['material_name'][:70]} | {c['geography']}" for c in candidates]
+            labels = [
+                f"{c['material_name'][:70]} | {c['geography']}"
+                + (f" | valid until {c['valid_until']}" if c.get("valid_until") else "")
+                for c in candidates
+            ]
             chosen = st.selectbox("EPD record", labels, key="oko_choice")
             chosen_c = candidates[labels.index(chosen)]
             c1, c2, c3 = st.columns(3)
@@ -456,6 +468,11 @@ def render_results(project: Project):
             st.plotly_chart(px.bar(element_frame, x="element", y="kgCO2e", title="Breakdown by element"), use_container_width=True)
 
     st.write("Data quality", result.data_quality_summary)
+    if result.a4_omitted_rows:
+        st.caption(
+            f"A4 coverage: {result.included_rows - result.a4_omitted_rows} of "
+            f"{result.included_rows} included rows have transport calculated."
+        )
     st.dataframe(pd.DataFrame(result.rows_as_dicts()), use_container_width=True)
     return result
 

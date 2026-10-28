@@ -12,7 +12,7 @@ from lca.factors.okobaudat import parse_process, _norm_unit, _pick_gwp_result
 FIXTURE = {
     "processInformation": {
         "quantitativeReference": {"referenceToReferenceFlow": [100342]},
-        "time": {"referenceYear": "2023"},
+        "time": {"referenceYear": "2023", "dataSetValidUntil": "2028"},
     },
     "exchanges": {
         "exchange": [
@@ -104,3 +104,49 @@ class OkobaudatParserTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ValidityDateTests(unittest.TestCase):
+    """valid_until must hold the EPD's expiry, not its reference year.
+
+    Checked against the live soda4LCA service: processInformation.time carries
+    both, e.g. {"referenceYear": 2025, "dataSetValidUntil": 2030}. The adapter
+    previously stored referenceYear, so an EPD valid to 2030 was recorded as
+    valid until 2025 — while the generated citation told users to verify it.
+    """
+
+    def test_valid_until_is_the_expiry_not_the_reference_year(self):
+        fs = parse_process(FIXTURE, record_id="abc")
+        self.assertEqual(fs.valid_until, "2028")
+        self.assertNotEqual(fs.valid_until, "2023")
+        self.assertNotIn("reference year instead", fs.notes)
+
+    def test_falls_back_to_reference_year_and_says_so(self):
+        import copy
+        fixture = copy.deepcopy(FIXTURE)
+        del fixture["processInformation"]["time"]["dataSetValidUntil"]
+        fs = parse_process(fixture, record_id="abc")
+        self.assertEqual(fs.valid_until, "2023")
+        self.assertIn("reference year instead", fs.notes)
+
+    def test_missing_time_block_leaves_valid_until_empty(self):
+        import copy
+        fixture = copy.deepcopy(FIXTURE)
+        fixture["processInformation"]["time"] = {}
+        fs = parse_process(fixture, record_id="abc")
+        self.assertEqual(fs.valid_until, "")
+
+    def test_search_candidates_carry_validity_from_the_listing(self):
+        from lca.factors.okobaudat import OkobaudatAdapter
+
+        class Offline(OkobaudatAdapter):
+            def _get_json(self, path, params):
+                return {"totalCount": 1, "data": [{
+                    "uuid": "u1", "name": "Concrete C30/37", "geo": "DE",
+                    "refYear": 2025, "validUntil": 2030,
+                }]}
+
+        [candidate] = Offline().search("concrete", limit=5)
+        self.assertEqual(candidate.valid_until, "2030")
+        self.assertEqual(candidate.record_id, "u1")
+
