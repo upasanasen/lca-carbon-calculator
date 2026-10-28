@@ -173,9 +173,18 @@ def parse_process(detail: Dict[str, Any], record_id: str, base_url: str = DEFAUL
             gwp["A1A3"] = sum(a123_parts.values())
 
     geo = (pi.get("geography", {}) or {}).get("locationOfOperationSupplyOrProduction", {}).get("location", "")
-    valid_until = ""
-    pub = (pi.get("time", {}) or {})
-    valid_until = str(pub.get("referenceYear", "") or "")
+    # ILCD `time` carries both referenceYear (the data's base year) and
+    # dataSetValidUntil (the EPD's expiry). Only the latter is a validity date;
+    # the live service returns e.g. referenceYear 2025, dataSetValidUntil 2030.
+    # The reference year is kept as a fallback for datasets that omit expiry,
+    # flagged in `notes` so it is never mistaken for a real validity date.
+    time_block = (pi.get("time", {}) or {})
+    valid_until = str(time_block.get("dataSetValidUntil", "") or "")
+    validity_note = ""
+    if not valid_until:
+        valid_until = str(time_block.get("referenceYear", "") or "")
+        if valid_until:
+            validity_note = " No dataSetValidUntil in source; valid_until shows the reference year instead."
 
     citation = (
         f"ÖKOBAUDAT EPD: {material_name or record_id} (UUID {record_id}). "
@@ -194,7 +203,7 @@ def parse_process(detail: Dict[str, Any], record_id: str, base_url: str = DEFAUL
         valid_until=valid_until,
         citation=citation,
         data_quality="epd",
-        notes="A1-A3 and C1-C4 taken from EPD; A4/A5/B6 derived by the engine.",
+        notes="A1-A3 and C1-C4 taken from EPD; A4/A5/B6 derived by the engine." + validity_note,
     )
     # stash density for the UI to use as a default (optional, non-model attr)
     fs.__dict__["density_kg_per_m3_hint"] = density_kg_per_m3
@@ -224,6 +233,7 @@ class OkobaudatAdapter(FactorAdapter):
             name = row.get("name") or row.get("uuid", "")
             geo = row.get("geo", "")
             ref_year = row.get("refYear", "")
+            valid_until = str(row.get("validUntil", "") or "")
             candidates.append(
                 FactorCandidate(
                     record_id=row.get("uuid", ""),
@@ -234,6 +244,7 @@ class OkobaudatAdapter(FactorAdapter):
                     geography=geo,
                     citation=f"ÖKOBAUDAT {ref_year} · {geo}".strip(" ·"),
                     preview_gwp_a1a3=0.0,  # resolved on get(); avoids N detail calls during search
+                    valid_until=valid_until,
                 )
             )
         return candidates

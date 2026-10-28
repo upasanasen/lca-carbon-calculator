@@ -17,6 +17,7 @@ class FactorCandidate:
     geography: str = ""
     citation: str = ""
     preview_gwp_a1a3: float = 0.0
+    valid_until: str = ""
 
 
 class FactorAdapter(ABC):

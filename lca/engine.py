@@ -199,19 +199,36 @@ def calculate_project(project: Project) -> ProjectResult:
     category_totals: Dict[str, float] = {}
     data_quality_summary: Dict[str, int] = {}
     warnings: List[str] = []
+    a4_omitted: List[str] = []
 
     for row in rows:
         if row.excluded:
             warnings.append(f"{row.material_name} excluded: {'; '.join(row.warnings)}")
             continue
+        if row.mass_kg is None:
+            a4_omitted.append(row.material_name)
         for module in MODULES:
             module_totals[module] += row.module_gwps.get(module, 0.0)
         element_totals[row.element_name] = element_totals.get(row.element_name, 0.0) + row.total_gwp
         category_totals[row.category] = category_totals.get(row.category, 0.0) + row.total_gwp
         data_quality_summary[row.source_type] = data_quality_summary.get(row.source_type, 0) + 1
+        # Per-row A4 warnings are rolled up into one project-level line below
+        # rather than repeated once per row; everything else passes through.
         for warning in row.warnings:
             if warning and "A4 transport" not in warning:
                 warnings.append(f"{row.material_name}: {warning}")
+
+    included = sum(1 for row in rows if not row.excluded)
+    if a4_omitted:
+        # Previously these per-row warnings were filtered out and nothing took
+        # their place, so the Results view showed an A4 total that silently
+        # excluded every area- or count-based row without a density.
+        shown = ", ".join(a4_omitted[:5]) + (", …" if len(a4_omitted) > 5 else "")
+        warnings.append(
+            f"A4 transport omitted for {len(a4_omitted)} of {included} included rows "
+            f"because mass is unknown ({shown}). Add a density to each to include "
+            "their transport; the A4 total is understated until then."
+        )
 
     b6, b6_warnings = calculate_b6(project)
     module_totals["B6"] = b6
@@ -235,4 +252,6 @@ def calculate_project(project: Project) -> ProjectResult:
         intensity_kgco2e_m2=intensity,
         data_quality_summary=data_quality_summary,
         warnings=warnings,
+        a4_omitted_rows=len(a4_omitted),
+        a4_omitted_materials=a4_omitted,
     )

@@ -174,6 +174,15 @@ class ProjectResult:
     intensity_kgco2e_m2: float
     data_quality_summary: Dict[str, int]
     warnings: List[str] = field(default_factory=list)
+    # Rows included in the totals whose A4 transport could not be calculated
+    # because mass is unknown (area/count items without density). Their A4 is
+    # zero, so the A4 total is understated by an unknown amount.
+    a4_omitted_rows: int = 0
+    a4_omitted_materials: List[str] = field(default_factory=list)
+
+    @property
+    def included_rows(self) -> int:
+        return sum(1 for row in self.rows if not row.excluded)
 
     def rows_as_dicts(self) -> List[Dict[str, Any]]:
         return [row.to_dict() for row in self.rows]
